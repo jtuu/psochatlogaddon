@@ -8,11 +8,17 @@ end
 
 local CHAT_PTR = 0x00A9A920
 local prevmaxy = 0
-local MSG_PATTERN = '^(.-) > \t([EJ])(.+)'
-local QCHAT_PATTERN = '^(.-) >( )(.+)$'
+-- E english
+-- J japonese
+-- T ???
+-- K korean
+local LOCALES = "EJTK"
+local MSG_MATCH = '^(.-) > \t([' .. LOCALES .. '])(.+)'
+local MSG_REPLACE = '^\t[' .. LOCALES .. ']'
+local QCHAT_MATCH = '^(.-) >( )(.+)$'
 local UPDATE_INTERVAL = 30
 local counter = UPDATE_INTERVAL - 1
-local MSG_OFFSET = 4
+local MSG_OFFSET = 0
 local output_messages = {}
 
 local function get_chat_log()
@@ -46,10 +52,11 @@ local function get_chat_log()
             i = i + 2
         end
         if rawmsg ~= nil and #rawmsg > 0 then
-            local name, locale, msg = string.match(rawmsg, MSG_PATTERN)
+            rawmsg = string.gsub(rawmsg, MSG_REPLACE, '')
+            local name, locale, msg = string.match(rawmsg, MSG_MATCH)
             rawmsg = string.gsub(rawmsg, '\n', ' ')
             if not msg then
-                name, locale, msg = string.match(rawmsg, QCHAT_PATTERN)
+                name, locale, msg = string.match(rawmsg, QCHAT_MATCH)
             end
             table.insert(messages, string.format("%-11s", name) .. "| " .. msg)
         end

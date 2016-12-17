@@ -10,8 +10,9 @@ local CHAT_PTR = 0x00A9A920
 local prevmaxy = 0
 -- E english
 -- J japonese
--- T ???
+-- T traditional chinese i think
 -- K korean
+-- i think there's more but haven't run into any ingame yet
 local LOCALES = "EJTK"
 local MSG_MATCH = '^(.-) > \t([' .. LOCALES .. '])(.+)'
 local MSG_REPLACE = '^\t[' .. LOCALES .. ']'
@@ -58,13 +59,36 @@ local function get_chat_log()
             if not msg then
                 name, locale, msg = string.match(rawmsg, QCHAT_MATCH)
             end
-            table.insert(messages, string.format("%-11s", name) .. "| " .. msg)
+            table.insert(messages, {name = name, text = msg})
         end
     end
     return messages
 end
 
+local GC_PTR = 0x00A46B8C
+local CHARACTERLIST_PTR = 0x00AAACC0
+local CHARACTERNAME_OFFSET = 36
+local GC_OFFSET = 4
+local CHARACTER_OFFSET = 68
+local MAX_PLAYERS = 12
+
+function get_gc()
+    return pso.read_u32(GC_PTR)
+end
+
+function get_charactername(gc)
+    for i = 0, MAX_PLAYERS do
+        local gc0 = pso.read_u32(CHARACTERLIST_PTR + CHARACTER_OFFSET * i + GC_OFFSET)
+        if(gc == gc0) then
+            return read_pso_str(CHARACTERLIST_PTR + CHARACTER_OFFSET * i + CHARACTERNAME_OFFSET, 20)
+        end
+    end
+    return nil
+end
+
+local HILIGHT_COLOR = {0.5, 1, 0, 1}
 imgui.SetNextWindowSize(550, 350)
+local own_name = ""
 local function present()
     counter = counter + 1
 
@@ -78,12 +102,30 @@ local function present()
     end
 
     if counter % UPDATE_INTERVAL == 0 then
+        own_name = string.gsub(string.lower(get_charactername(get_gc())), "%z", "")
         output_messages = get_chat_log()
         counter = 0
     end
 
     for i,msg in ipairs(output_messages) do
-        imgui.TextWrapped(msg)
+        local formatted = string.format("%-11s", msg.name) .. "| " .. msg.text
+        local lower = string.lower(msg.text) -- for case insensitive matching
+
+        -- full word match own name
+        if string.match(lower, own_name) and
+            (
+                string.match(lower, '^' .. own_name .. '[%p%s]') or
+                string.match(lower, '[%p%s]' .. own_name .. '[%p%s]') or
+                string.match(lower, '[%p%s]' .. own_name .. '$') or
+                string.match(lower, '^' .. own_name .. '$')
+            ) then
+                -- hilight message
+                imgui.PushTextWrapPos(0)
+                imgui.TextColored(HILIGHT_COLOR[1], HILIGHT_COLOR[2], HILIGHT_COLOR[3], HILIGHT_COLOR[4], formatted)
+                imgui.PopTextWrapPos()
+        else
+            imgui.TextWrapped(formatted)
+        end
     end
 
     if scrolldown then

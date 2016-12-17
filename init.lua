@@ -12,11 +12,12 @@ local prevmaxy = 0
 -- J japonese
 -- T traditional chinese i think
 -- K korean
--- i think there's more but haven't run into any ingame yet
+-- i think there"s more but haven"t run into any ingame yet
 local LOCALES = "EJTK"
-local MSG_MATCH = '^(.-) > \t([' .. LOCALES .. '])(.+)'
-local MSG_REPLACE = '^\t[' .. LOCALES .. ']'
-local QCHAT_MATCH = '^(.-) >( )(.+)$'
+local MSG_MATCH = "^(.-) > \t([" .. LOCALES .. "])(.+)"
+local MSG_REPLACE = "^\t[" .. LOCALES .. "]"
+local QCHAT_MATCH = "^(.-) >( )(.+)$"
+local QCHAT_REPLACE = "(> )\t[" .. LOCALES .. "]"
 local UPDATE_INTERVAL = 30
 local counter = UPDATE_INTERVAL - 1
 local MSG_OFFSET = 0
@@ -44,8 +45,8 @@ local function get_chat_log()
             -- multibyte char
             if(msgbuf[2] and msgbuf[2] ~= 0) then
                 -- cur_byte = tonumber(string.format("%.2X", msgbuf[2], 8) .. string.format("%.2X", msgbuf[1], 8), 16)
-                -- nvm lua doesn't seem to support unicode...
-                -- also the default imgui font doesn't have many chars anyway
+                -- nvm lua doesn"t seem to support unicode...
+                -- also the default imgui font doesn"t have many chars anyway
             end
             if cur_byte and cur_byte ~= 0x0 then
                 rawmsg = rawmsg .. string.char(cur_byte) end
@@ -53,10 +54,11 @@ local function get_chat_log()
             i = i + 2
         end
         if rawmsg ~= nil and #rawmsg > 0 then
-            rawmsg = string.gsub(rawmsg, MSG_REPLACE, '')
+            rawmsg = string.gsub(rawmsg, MSG_REPLACE, "")
             local name, locale, msg = string.match(rawmsg, MSG_MATCH)
-            rawmsg = string.gsub(rawmsg, '\n', ' ')
+            rawmsg = string.gsub(rawmsg, "\n", " ")
             if not msg then
+                rawmsg = string.gsub(rawmsg, QCHAT_REPLACE, "%1")
                 name, locale, msg = string.match(rawmsg, QCHAT_MATCH)
             end
             table.insert(messages, {name = name, text = msg})
@@ -114,10 +116,10 @@ local function present()
         -- full word match own name
         if string.match(lower, own_name) and
             (
-                string.match(lower, '^' .. own_name .. '[%p%s]') or
-                string.match(lower, '[%p%s]' .. own_name .. '[%p%s]') or
-                string.match(lower, '[%p%s]' .. own_name .. '$') or
-                string.match(lower, '^' .. own_name .. '$')
+                string.match(lower, "^" .. own_name .. "[%p%s]") or
+                string.match(lower, "[%p%s]" .. own_name .. "[%p%s]") or
+                string.match(lower, "[%p%s]" .. own_name .. "$") or
+                string.match(lower, "^" .. own_name .. "$")
             ) then
                 -- hilight message
                 imgui.PushTextWrapPos(0)

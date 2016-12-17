@@ -74,11 +74,28 @@ local GC_OFFSET = 4
 local CHARACTER_OFFSET = 68
 local MAX_PLAYERS = 12
 
-function get_gc()
+local function read_pso_str(addr, len)
+    local buf = {}
+    pso.read_mem(buf, addr, len)
+    local str = ""
+
+    local i = 0
+    while i < len do
+        i = i + 2
+        local b1 = buf[i - 1]
+        local b2 = buf[i]
+
+        xpcall(function() str = str .. string.char(b1) end, function(err) str = str .. "?" end)
+    end
+
+    return str
+end
+
+local function get_gc()
     return pso.read_u32(GC_PTR)
 end
 
-function get_charactername(gc)
+local function get_charactername(gc)
     for i = 0, MAX_PLAYERS do
         local gc0 = pso.read_u32(CHARACTERLIST_PTR + CHARACTER_OFFSET * i + GC_OFFSET)
         if(gc == gc0) then

@@ -127,7 +127,8 @@ local function present()
     end
 
     for i,msg in ipairs(output_messages) do
-        local formatted = string.format("%-11s", msg.name) .. "| " .. msg.text
+        local formatted = string.format("%-11s", msg.name) .. -- rpad name
+                          "| " .. string.gsub(msg.text, "%%", "%%%%") -- escape %
         local lower = string.lower(msg.text) -- for case insensitive matching
 
         -- full word match own name

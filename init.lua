@@ -19,54 +19,31 @@ local MSG_MATCH = "^(.-) > \t([" .. LOCALES .. "])(.+)"
 local MSG_REPLACE = "^\t[" .. LOCALES .. "]"
 local QCHAT_MATCH = "^(.-) >( )(.+)$"
 local QCHAT_REPLACE = "(> )\t[" .. LOCALES .. "]"
-local MAX_GAME_LOG = 30 -- max amount of messages the game stores
+local MAX_GAME_LOG = 29 -- max amount of messages the game stores
+local MAX_MSG_SIZE = 100 -- not correct but close enough, character name length seems to affect it
 local output_messages = {}
 
 local function get_chat_log()
     local messages = {}
     for i = 0, MAX_GAME_LOG do -- for each pointer to a message
-        local buf = {}
-        pso.read_mem(buf, CHAT_PTR + i * 4, 4)
-        local ptr = 0 -- message pointer
-        for k,v in ipairs(buf) do
-            ptr = ptr .. string.format("%.2X", v, 8)
-        end
-        ptr = bit.bswap(tonumber(ptr, 16))
-        local cur_byte = -1 -- msg data
-        local prev_byte = -1
-        local i = 0 -- msg pos
-        local rawmsg = ""
-        -- read message two bytes at a time
-        while (cur_byte and cur_byte ~= 0) or (prev_byte and prev_byte ~= 0) do -- eof if both are null
-            local msgbuf = {}
-            pcall(pso.read_mem, msgbuf, ptr + i, 2) -- for some reason the read_mem throws errors
-            cur_byte = msgbuf[1]
-            -- multibyte char
-            if(msgbuf[2] and msgbuf[2] ~= 0) then
-                -- cur_byte = tonumber(string.format("%.2X", msgbuf[2], 8) .. string.format("%.2X", msgbuf[1], 8), 16)
-                -- nvm lua doesn't seem to support unicode...
-                -- also the default imgui font doesn't have many chars anyway
-                cur_byte = 63 -- turn then into question marks instead of garbled text
+        local ptr = pso.read_u32(CHAT_PTR + i * 4)
+
+        if ptr and ptr ~= 0 then
+            local rawmsg = pso.read_wstr(ptr, MAX_MSG_SIZE)
+            -- was there any message?
+            if rawmsg ~= nil and #rawmsg > 0 then
+                rawmsg = string.gsub(rawmsg, MSG_REPLACE, "") -- remove some shit
+                local name, locale, msg = string.match(rawmsg, MSG_MATCH) -- try match the rights parts
+                rawmsg = string.gsub(rawmsg, "\n", " ") -- replace newlines
+                if not msg then
+                    -- failed to match regular message format,
+                    -- so it's probably a quickchat message
+                    rawmsg = string.gsub(rawmsg, QCHAT_REPLACE, "%1") -- remove some shit
+                    name, locale, msg = string.match(rawmsg, QCHAT_MATCH) -- try match again
+                end
+                -- good enough
+                table.insert(messages, {name = name, text = msg, date = "??:??:??"})
             end
-            if cur_byte and cur_byte ~= 0x0 then
-                -- append ascii representation
-                rawmsg = rawmsg .. string.char(cur_byte) end
-            prev_byte = msgbuf[2]
-            i = i + 2
-        end
-        -- was there any message?
-        if rawmsg ~= nil and #rawmsg > 0 then
-            rawmsg = string.gsub(rawmsg, MSG_REPLACE, "") -- remove some shit
-            local name, locale, msg = string.match(rawmsg, MSG_MATCH) -- try match the rights parts
-            rawmsg = string.gsub(rawmsg, "\n", " ") -- replace newlines
-            if not msg then
-                -- failed to match regular message format,
-                -- so it's probably a quickchat message
-                rawmsg = string.gsub(rawmsg, QCHAT_REPLACE, "%1") -- remove some shit
-                name, locale, msg = string.match(rawmsg, QCHAT_MATCH) -- try match again
-            end
-            -- good enough
-            table.insert(messages, {name = name, text = msg, date = "??:??:??"})
         end
     end
     return messages

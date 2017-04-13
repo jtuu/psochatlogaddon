@@ -108,50 +108,54 @@ local function present()
             scrolldown = true
         end
 
-        -- apparently there's null characters in the name?
-        -- so the gsub removes them
-        own_name = string.gsub(string.lower(get_charactername(get_gc())), "%z", "")
-        local updated_messages = get_chat_log()
+        -- Check if we have a character name, can be null if we are not online yet
+        character_name = get_charactername(get_gc())
+        if character_name ~= nil then
+            -- apparently there's null characters in the name?
+            -- so the gsub removes them
+            own_name = string.gsub(string.lower(character_name), "%z", "")
+            local updated_messages = get_chat_log()
 
-        if #output_messages == 0 and #updated_messages > 0 then
-            -- old list is empty but there are new messages
-            output_messages = updated_messages
-        elseif #output_messages == 0 or #updated_messages == 0 then
-            -- do nothing
-        else
-            -- diff old and new messages
+            if #output_messages == 0 and #updated_messages > 0 then
+                -- old list is empty but there are new messages
+                output_messages = updated_messages
+            elseif #output_messages == 0 or #updated_messages == 0 then
+                -- do nothing
+            else
+                -- diff old and new messages
 
-            local idx = 1
-            -- find index of the latest matching message
-            -- wrap loops in func so we can break both with return
-            ;(function()
-                -- realistically we probably dont need the outer loop
-                -- since there's no way more than 30 messages could be sent
-                -- in between updates
-                for i = #output_messages, 1, -1 do
-                    for j = #updated_messages, 1, -1 do
-                        if output_messages[i].text == updated_messages[j].text and
-                        output_messages[i].name == updated_messages[j].name then
-                            idx = j + 1
-                            return
+                local idx = 1
+                -- find index of the latest matching message
+                -- wrap loops in func so we can break both with return
+                ;(function()
+                    -- realistically we probably dont need the outer loop
+                    -- since there's no way more than 30 messages could be sent
+                    -- in between updates
+                    for i = #output_messages, 1, -1 do
+                        for j = #updated_messages, 1, -1 do
+                            if output_messages[i].text == updated_messages[j].text and
+                            output_messages[i].name == updated_messages[j].name then
+                                idx = j + 1
+                                return
+                            end
                         end
                     end
-                end
-            end)()
+                end)()
 
-            -- add all new messages after that index
-            for i = idx, #updated_messages do
-                local msg = updated_messages[i]
-                msg.date = os.date("%H:%M:%S", os.time())
-                table.insert(output_messages, msg)
-                -- remove from start if log is too long
-                if #output_messages > MAX_LOG_SIZE then
-                    table.remove(output_messages, 1)
+                -- add all new messages after that index
+                for i = idx, #updated_messages do
+                    local msg = updated_messages[i]
+                    msg.date = os.date("%H:%M:%S", os.time())
+                    table.insert(output_messages, msg)
+                    -- remove from start if log is too long
+                    if #output_messages > MAX_LOG_SIZE then
+                        table.remove(output_messages, 1)
+                    end
                 end
+
             end
-
         end
-
+        
         counter = 0
     end
 

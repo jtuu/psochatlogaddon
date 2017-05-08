@@ -1,8 +1,11 @@
+local present
+
 local function init()
     return {
         name = "chatlog",
         version = "0.0.1",
-        author = "esc"
+        author = "esc",
+        present = present
     }
 end
 
@@ -94,7 +97,7 @@ local HILIGHT_COLOR = {0.5, 1, 0, 1}
 
 local own_name = ""
 
-local function present()
+present = function()
     counter = counter + 1
 
     imgui.Begin("Chatlog")
@@ -201,10 +204,8 @@ local function present()
     imgui.End()
 end
 
-pso.on_init(init)
-pso.on_present(present)
-
 return {
-    init = init,
-    present = present
+    __addon = {
+        init = init,
+    },
 }

@@ -1,13 +1,148 @@
-local present
+local core_mainmenu = require("core_mainmenu")
+local lib_theme_Loaded, lib_theme = pcall(require, "Theme Editor.theme")
+local cfg = require("Chatlog.configuration")
+local optionsLoaded, options = pcall(require, "Chatlog.options")
 
-local function init()
-    return {
-        name = "chatlog",
-        version = "0.0.1",
-        author = "esc",
-        present = present
+local optionsFileName = "addons/Chatlog/options.lua"
+local firstPresent = true
+local ConfigurationWindow
+
+-- Helpers in solylib
+local function NotNilOrDefault(value, default)
+    if value == nil then
+        return default
+    else
+        return value
+    end
+end
+local function GetPosBySizeAndAnchor(_x, _y, _w, _h, _anchor)
+    local x
+    local y
+
+    local resW = pso.read_u16(0x00A46C48)
+    local resH = pso.read_u16(0x00A46C4A)
+
+    -- Top left
+    if _anchor == 1 then
+        x = _x
+        y = _y
+
+    -- Left
+    elseif _anchor == 2 then
+        x = _x
+        y = (resH / 2) - (_h / 2) + _y
+
+    -- Bottom left
+    elseif _anchor == 3 then
+        x = _x
+        y = resH - _h + _y
+
+    -- Top
+    elseif _anchor == 4 then
+        x = (resW / 2) - (_w / 2) + _x
+        y = _y
+
+    -- Center
+    elseif _anchor == 5 then
+        x = (resW / 2) - (_w / 2) + _x
+        y = (resH / 2) - (_h / 2) + _y
+
+    -- Bottom
+    elseif _anchor == 6 then
+        x = (resW / 2) - (_w / 2) + _x
+        y = resH - _h + _y
+
+    -- Top right
+    elseif _anchor == 7 then
+        x = resW - _w + _x
+        y = _y
+
+    -- Right
+    elseif _anchor == 8 then
+        x = resW - _w + _x
+        y = (resH / 2) - (_h / 2) + _y
+
+    -- Bottom right
+    elseif _anchor == 9 then
+        x = resW - _w + _x
+        y = resH - _h + _y
+
+    -- Whatever
+    else
+        x = _x
+        y = _y
+    end
+
+    return { x, y }
+end
+-- End of helpers in solylib
+
+if optionsLoaded then
+    -- If options loaded, make sure we have all those we need
+    options.configurationEnableWindow = NotNilOrDefault(options.configurationEnableWindow, true)
+    options.enable                    = NotNilOrDefault(options.enable, true)
+    options.useCustomTheme            = NotNilOrDefault(options.useCustomTheme, false)
+    options.fontScale                 = NotNilOrDefault(options.fontScale, 1.0)
+
+    options.clEnableWindow      = NotNilOrDefault(options.clEnableWindow, true)
+    options.clChanged           = NotNilOrDefault(options.clChanged, false)
+    options.clAnchor            = NotNilOrDefault(options.clAnchor, 1)
+    options.clX                 = NotNilOrDefault(options.clX, 50)
+    options.clY                 = NotNilOrDefault(options.clY, 50)
+    options.clW                 = NotNilOrDefault(options.clW, 450)
+    options.clH                 = NotNilOrDefault(options.clH, 350)
+    options.clNoTitleBar        = NotNilOrDefault(options.clNoTitleBar, "")
+    options.clNoResize          = NotNilOrDefault(options.clNoResize, "")
+    options.clTransparentWindow = NotNilOrDefault(options.clTransparentWindow, false)
+else
+    options = 
+    {
+        configurationEnableWindow = true,
+        enable = true,
+        useCustomTheme = false,
+        fontScale = 1.0,
+
+        clEnableWindow = true,
+        clChanged = false,
+        clAnchor = 1,
+        clX = 50,
+        clY = 50,
+        clW = 450,
+        clH = 350,
+        clNoTitleBar = "",
+        clNoResize = "",
+        clTransparentWindow = false,
     }
 end
+
+local function SaveOptions(options)
+    local file = io.open(optionsFileName, "w")
+    if file ~= nil then
+        io.output(file)
+
+        io.write("return\n")
+        io.write("{\n")
+        io.write(string.format("    configurationEnableWindow = %s,\n", tostring(options.configurationEnableWindow)))
+        io.write(string.format("    enable = %s,\n", tostring(options.enable)))
+        io.write(string.format("    useCustomTheme = %s,\n", tostring(options.useCustomTheme)))
+        io.write(string.format("    fontScale = %s,\n", tostring(options.fontScale)))
+        io.write("\n")
+        io.write(string.format("    clEnableWindow = %s,\n", tostring(options.clEnableWindow)))
+        io.write(string.format("    clChanged = %s,\n", tostring(options.clChanged)))
+        io.write(string.format("    clAnchor = %i,\n", options.clAnchor))
+        io.write(string.format("    clX = %i,\n", options.clX))
+        io.write(string.format("    clY = %i,\n", options.clY))
+        io.write(string.format("    clW = %i,\n", options.clW))
+        io.write(string.format("    clH = %i,\n", options.clH))
+        io.write(string.format("    clNoTitleBar = \"%s\",\n", options.clNoTitleBar))
+        io.write(string.format("    clNoResize = \"%s\",\n", options.clNoResize))
+        io.write(string.format("    clTransparentWindow = %s,\n", tostring(options.clTransparentWindow)))
+        io.write("}\n")
+
+        io.close(file)
+    end
+end
+
 
 local CHAT_PTR = 0x00A9A920
 local prevmaxy = 0
@@ -97,10 +232,8 @@ local HILIGHT_COLOR = {0.5, 1, 0, 1}
 
 local own_name = ""
 
-present = function()
+local function DoChat()
     counter = counter + 1
-
-    imgui.Begin("Chatlog")
 
     if counter % UPDATE_INTERVAL == 0 then
         local sy = imgui.GetScrollY()
@@ -200,12 +333,82 @@ present = function()
 
         prevmaxy = imgui.GetScrollMaxY()
     end
+end
 
+local function present()
+    -- If the addon has never been used, open the config window
+    -- and disable the config window setting
+    if options.configurationEnableWindow then
+        ConfigurationWindow.open = true
+        options.configurationEnableWindow = false
+    end
+
+    ConfigurationWindow.Update()
+    if ConfigurationWindow.changed then
+        ConfigurationWindow.changed = false
+        SaveOptions(options)
+    end
+
+    -- Global enable here to let the configuration window work
+    if options.enable == false then
+        return
+    end
+
+    if lib_theme_Loaded and options.useCustomTheme then
+        lib_theme.Push()
+    end
+
+    if firstPresent or options.clChanged then
+        options.clChanged = false
+        local ps = GetPosBySizeAndAnchor(options.clX, options.clY, options.clW, options.clH, options.clAnchor)
+        imgui.SetNextWindowPos(ps[1], ps[2], "Always");
+        imgui.SetNextWindowSize(options.clW, options.clH, "Always");
+    end
+
+    if options.clTransparentWindow == true then
+        imgui.PushStyleColor("WindowBg", 0.0, 0.0, 0.0, 0.0)
+    end
+
+    if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize }) then
+        imgui.SetWindowFontScale(options.fontScale)
+        DoChat()
+    end
     imgui.End()
+
+    if options.clTransparentWindow == true then
+        imgui.PopStyleColor()
+    end
+
+    if lib_theme_Loaded and options.useCustomTheme then
+        lib_theme.Pop()
+    end
+
+    if firstPresent then
+        firstPresent = false
+    end
+end
+
+local function init()
+    ConfigurationWindow = cfg.ConfigurationWindow(options)
+
+    local function mainMenuButtonHandler()
+        ConfigurationWindow.open = not ConfigurationWindow.open
+    end
+
+    core_mainmenu.add_button("Chatlog", mainMenuButtonHandler)
+
+    return
+    {
+        name = "Chatlog",
+        version = "0.1.0",
+        author = "esc",
+        present = present
+    }
 end
 
 return {
-    __addon = {
+    __addon =
+    {
         init = init,
     },
 }

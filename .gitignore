@@ -1,0 +1,9 @@
+.vs
+Debug
+Release
+x64
+*.VC.db
+*.VC.opendb
+*.vcxproj.user
+
+/Chatlog/options.lua

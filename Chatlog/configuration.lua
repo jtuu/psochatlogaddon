@@ -54,6 +54,14 @@ local function ConfigurationWindow(configuration)
                 end
                 this.changed = true
             end
+            if imgui.Checkbox("No Move", _configuration.clNoMove == "NoMove") then
+                if _configuration.clNoMove == "NoMove" then
+                    _configuration.clNoMove = ""
+                else
+                    _configuration.clNoMove = "NoMove"
+                end
+                this.changed = true
+            end
 
             if imgui.Checkbox("Transparent window", _configuration.clTransparentWindow) then
                 _configuration.clTransparentWindow = not _configuration.clTransparentWindow

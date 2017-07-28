@@ -93,6 +93,7 @@ if optionsLoaded then
     options.clH                 = NotNilOrDefault(options.clH, 350)
     options.clNoTitleBar        = NotNilOrDefault(options.clNoTitleBar, "")
     options.clNoResize          = NotNilOrDefault(options.clNoResize, "")
+    options.clNoMove          = NotNilOrDefault(options.clNoMove, "")
     options.clTransparentWindow = NotNilOrDefault(options.clTransparentWindow, false)
 else
     options = 
@@ -111,6 +112,7 @@ else
         clH = 350,
         clNoTitleBar = "",
         clNoResize = "",
+        clNoMove = "",
         clTransparentWindow = false,
     }
 end
@@ -136,6 +138,7 @@ local function SaveOptions(options)
         io.write(string.format("    clH = %i,\n", options.clH))
         io.write(string.format("    clNoTitleBar = \"%s\",\n", options.clNoTitleBar))
         io.write(string.format("    clNoResize = \"%s\",\n", options.clNoResize))
+        io.write(string.format("    clNoMove = \"%s\",\n", options.clNoMove))
         io.write(string.format("    clTransparentWindow = %s,\n", tostring(options.clTransparentWindow)))
         io.write("}\n")
 
@@ -369,7 +372,7 @@ local function present()
         imgui.PushStyleColor("WindowBg", 0.0, 0.0, 0.0, 0.0)
     end
 
-    if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize }) then
+    if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove }) then
         imgui.SetWindowFontScale(options.fontScale)
         DoChat()
     end

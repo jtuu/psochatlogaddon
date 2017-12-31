@@ -1,5 +1,4 @@
 local core_mainmenu = require("core_mainmenu")
-local lib_theme_loaded, lib_theme = pcall(require, "Theme Editor.theme")
 local cfg = require("Chatlog.configuration")
 local optionsLoaded, options = pcall(require, "Chatlog.options")
 
@@ -357,10 +356,6 @@ local function present()
         return
     end
 
-    if lib_theme_loaded and options.useCustomTheme then
-        lib_theme.Push()
-    end
-
     if firstPresent or options.clChanged then
         options.clChanged = false
         local ps = GetPosBySizeAndAnchor(options.clX, options.clY, options.clW, options.clH, options.clAnchor)
@@ -382,10 +377,6 @@ local function present()
         imgui.PopStyleColor()
     end
 
-    if lib_theme_loaded and options.useCustomTheme then
-        lib_theme.Pop()
-    end
-
     if firstPresent then
         firstPresent = false
     end
@@ -399,10 +390,6 @@ local function init()
     end
 
     core_mainmenu.add_button("Chatlog", mainMenuButtonHandler)
-
-    if lib_theme_loaded == false then
-        print("Chatlog: lib_theme couldn't be loaded")
-    end
 
     return
     {

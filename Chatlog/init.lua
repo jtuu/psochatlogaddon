@@ -150,11 +150,12 @@ local CHAT_PTR = 0x00A9A920
 local prevmaxy = 0
 -- E english
 -- J japonese
--- T traditional chinese i think
+-- B simple chinese
+-- T traditional chinese
 -- K korean
 -- i think there's more but haven't run into any ingame yet
 -- unknown locales will cause parsing issues
-local LOCALES = "EJTK"
+local LOCALES = "EJTKB"
 local MSG_MATCH = "^(.-) > \t([" .. LOCALES .. "])(.+)"
 local MSG_REPLACE = "^\t[" .. LOCALES .. "]"
 local QCHAT_MATCH = "^(.-) >( )(.+)$"

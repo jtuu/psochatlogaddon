@@ -33,6 +33,19 @@ local function ConfigurationWindow(configuration)
         end
 
         if imgui.TreeNodeEx("Chatlog", "DefaultOpen") then
+            if imgui.Checkbox("Hide when menus are open", _configuration.clHideWhenMenu) then
+                _configuration.clHideWhenMenu = not _configuration.clHideWhenMenu
+                this.changed = true
+            end
+            if imgui.Checkbox("Hide when symbol chat/word select is open", _configuration.clHideWhenSymbolChat) then
+                _configuration.clHideWhenSymbolChat = not _configuration.clHideWhenSymbolChat
+                this.changed = true
+            end
+            if imgui.Checkbox("Hide when the menu is unavailable", _configuration.clHideWhenMenuUnavailable) then
+                _configuration.clHideWhenMenuUnavailable = not _configuration.clHideWhenMenuUnavailable
+                this.changed = true
+            end
+
             if imgui.Checkbox("No title bar", _configuration.clNoTitleBar == "NoTitleBar") then
                 if _configuration.clNoTitleBar == "NoTitleBar" then
                     _configuration.clNoTitleBar = ""
@@ -60,11 +73,6 @@ local function ConfigurationWindow(configuration)
 
             if imgui.Checkbox("Transparent window", _configuration.clTransparentWindow) then
                 _configuration.clTransparentWindow = not _configuration.clTransparentWindow
-                this.changed = true
-            end
-
-            if imgui.Checkbox("Hide when menus are open", _configuration.clHideInMenu) then
-                _configuration.clHideInMenu = not _configuration.clHideInMenu
                 this.changed = true
             end
 

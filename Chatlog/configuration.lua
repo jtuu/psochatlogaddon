@@ -63,6 +63,11 @@ local function ConfigurationWindow(configuration)
                 this.changed = true
             end
 
+            if imgui.Checkbox("Hide when menus are open", _configuration.clHideInMenu) then
+                _configuration.clHideInMenu = not _configuration.clHideInMenu
+                this.changed = true
+            end
+
             imgui.Text("Position and Size")
             imgui.PushItemWidth(200)
             success, _configuration.clAnchor = imgui.Combo("Anchor", _configuration.clAnchor, anchorList, table.getn(anchorList))

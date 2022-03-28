@@ -1,4 +1,5 @@
 local core_mainmenu = require("core_mainmenu")
+local lib_menu = require("solylib.menu")
 local cfg = require("Chatlog.configuration")
 local optionsLoaded, options = pcall(require, "Chatlog.options")
 
@@ -92,8 +93,9 @@ if optionsLoaded then
     options.clH                 = NotNilOrDefault(options.clH, 350)
     options.clNoTitleBar        = NotNilOrDefault(options.clNoTitleBar, "")
     options.clNoResize          = NotNilOrDefault(options.clNoResize, "")
-    options.clNoMove          = NotNilOrDefault(options.clNoMove, "")
+    options.clNoMove            = NotNilOrDefault(options.clNoMove, "")
     options.clTransparentWindow = NotNilOrDefault(options.clTransparentWindow, false)
+    options.clHideInMenu        = NotNilOrDefault(options.clHideInMenu, false)
 else
     options = 
     {
@@ -113,6 +115,7 @@ else
         clNoResize = "",
         clNoMove = "",
         clTransparentWindow = false,
+        clHideInMenu = false,
     }
 end
 
@@ -139,6 +142,7 @@ local function SaveOptions(options)
         io.write(string.format("    clNoResize = \"%s\",\n", options.clNoResize))
         io.write(string.format("    clNoMove = \"%s\",\n", options.clNoMove))
         io.write(string.format("    clTransparentWindow = %s,\n", tostring(options.clTransparentWindow)))
+        io.write(string.format("    clHideInMenu = %s,\n", tostring(options.clHideInMenu)))
         io.write("}\n")
 
         io.close(file)
@@ -368,11 +372,13 @@ local function present()
         imgui.PushStyleColor("WindowBg", 0.0, 0.0, 0.0, 0.0)
     end
 
-    if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove }) then
-        imgui.SetWindowFontScale(options.fontScale)
-        DoChat()
+    if (options.clHideInMenu == false or lib_menu.IsMenuOpen() == false) then
+      if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove }) then
+          imgui.SetWindowFontScale(options.fontScale)
+          DoChat()
+      end
+      imgui.End()
     end
-    imgui.End()
 
     if options.clTransparentWindow == true then
         imgui.PopStyleColor()

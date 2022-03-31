@@ -1,5 +1,4 @@
 local core_mainmenu = require("core_mainmenu")
-local lib_menu = require("solylib.menu")
 local cfg = require("Chatlog.configuration")
 local optionsLoaded, options = pcall(require, "Chatlog.options")
 
@@ -8,6 +7,42 @@ local firstPresent = true
 local ConfigurationWindow
 
 -- Helpers in solylib
+local function _getMenuState()
+    local offsets = {
+        0x00A98478,
+        0x00000010,
+        0x0000001E,
+    }
+    local address = 0
+    local value = -1
+    local bad_read = false
+    for k, v in pairs(offsets) do
+        if address ~= -1 then
+            address = pso.read_u32(address + v)
+            if address == 0 then
+                address = -1
+            end
+        end
+    end
+    if address ~= -1 then
+        value = bit.band(address, 0xFFFF)
+    end
+    return value
+end
+local function IsMenuOpen()
+    local menuOpen = 0x43
+    local menuState = _getMenuState()
+    return menuState == menuOpen
+end
+local function IsSymbolChatOpen()
+    local wordSelectOpen = 0x40
+    local menuState = _getMenuState()
+    return menuState == wordSelectOpen
+end
+local function IsMenuUnavailable()
+    local menuState = _getMenuState()
+    return menuState == -1
+end
 local function NotNilOrDefault(value, default)
     if value == nil then
         return default
@@ -368,9 +403,9 @@ local function present()
     end
 
     if (options.clEnableWindow == true)
-        and (options.clHideWhenMenu == false or lib_menu.IsMenuOpen() == false)
-        and (options.clHideWhenSymbolChat == false or lib_menu.IsSymbolChatOpen() == false)
-        and (options.clHideWhenMenuUnavailable == false or lib_menu.IsMenuUnavailable() == false)
+        and (options.clHideWhenMenu == false or IsMenuOpen() == false)
+        and (options.clHideWhenSymbolChat == false or IsSymbolChatOpen() == false)
+        and (options.clHideWhenMenuUnavailable == false or IsMenuUnavailable() == false)
     then
         if firstPresent or options.clChanged then
             options.clChanged = false

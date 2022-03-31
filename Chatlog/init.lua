@@ -1,5 +1,4 @@
 local core_mainmenu = require("core_mainmenu")
-local lib_menu = require("solylib.menu")
 local cfg = require("Chatlog.configuration")
 local optionsLoaded, options = pcall(require, "Chatlog.options")
 
@@ -8,6 +7,42 @@ local firstPresent = true
 local ConfigurationWindow
 
 -- Helpers in solylib
+local function _getMenuState()
+    local offsets = {
+        0x00A98478,
+        0x00000010,
+        0x0000001E,
+    }
+    local address = 0
+    local value = -1
+    local bad_read = false
+    for k, v in pairs(offsets) do
+        if address ~= -1 then
+            address = pso.read_u32(address + v)
+            if address == 0 then
+                address = -1
+            end
+        end
+    end
+    if address ~= -1 then
+        value = bit.band(address, 0xFFFF)
+    end
+    return value
+end
+local function IsMenuOpen()
+    local menuOpen = 0x43
+    local menuState = _getMenuState()
+    return menuState == menuOpen
+end
+local function IsSymbolChatOpen()
+    local wordSelectOpen = 0x40
+    local menuState = _getMenuState()
+    return menuState == wordSelectOpen
+end
+local function IsMenuUnavailable()
+    local menuState = _getMenuState()
+    return menuState == -1
+end
 local function NotNilOrDefault(value, default)
     if value == nil then
         return default
@@ -84,20 +119,22 @@ if optionsLoaded then
     options.useCustomTheme            = NotNilOrDefault(options.useCustomTheme, false)
     options.fontScale                 = NotNilOrDefault(options.fontScale, 1.0)
 
-    options.clEnableWindow      = NotNilOrDefault(options.clEnableWindow, true)
-    options.clChanged           = NotNilOrDefault(options.clChanged, false)
-    options.clAnchor            = NotNilOrDefault(options.clAnchor, 1)
-    options.clX                 = NotNilOrDefault(options.clX, 50)
-    options.clY                 = NotNilOrDefault(options.clY, 50)
-    options.clW                 = NotNilOrDefault(options.clW, 450)
-    options.clH                 = NotNilOrDefault(options.clH, 350)
-    options.clNoTitleBar        = NotNilOrDefault(options.clNoTitleBar, "")
-    options.clNoResize          = NotNilOrDefault(options.clNoResize, "")
-    options.clNoMove            = NotNilOrDefault(options.clNoMove, "")
-    options.clTransparentWindow = NotNilOrDefault(options.clTransparentWindow, false)
-    options.clHideInMenu        = NotNilOrDefault(options.clHideInMenu, false)
+    options.clEnableWindow            = NotNilOrDefault(options.clEnableWindow, true)
+    options.clHideWhenMenu            = NotNilOrDefault(options.clHideWhenMenu, true)
+    options.clHideWhenSymbolChat      = NotNilOrDefault(options.clHideWhenSymbolChat, true)
+    options.clHideWhenMenuUnavailable = NotNilOrDefault(options.clHideWhenMenuUnavailable, true)
+    options.clChanged                 = NotNilOrDefault(options.clChanged, false)
+    options.clAnchor                  = NotNilOrDefault(options.clAnchor, 1)
+    options.clX                       = NotNilOrDefault(options.clX, 50)
+    options.clY                       = NotNilOrDefault(options.clY, 50)
+    options.clW                       = NotNilOrDefault(options.clW, 450)
+    options.clH                       = NotNilOrDefault(options.clH, 350)
+    options.clNoTitleBar              = NotNilOrDefault(options.clNoTitleBar, "")
+    options.clNoResize                = NotNilOrDefault(options.clNoResize, "")
+    options.clNoMove                  = NotNilOrDefault(options.clNoMove, "")
+    options.clTransparentWindow       = NotNilOrDefault(options.clTransparentWindow, false)
 else
-    options = 
+    options =
     {
         configurationEnableWindow = true,
         enable = true,
@@ -105,6 +142,9 @@ else
         fontScale = 1.0,
 
         clEnableWindow = true,
+        clHideWhenMenu = false,
+        clHideWhenSymbolChat = false,
+        clHideWhenMenuUnavailable = false,
         clChanged = false,
         clAnchor = 1,
         clX = 50,
@@ -115,7 +155,6 @@ else
         clNoResize = "",
         clNoMove = "",
         clTransparentWindow = false,
-        clHideInMenu = false,
     }
 end
 
@@ -132,6 +171,9 @@ local function SaveOptions(options)
         io.write(string.format("    fontScale = %s,\n", tostring(options.fontScale)))
         io.write("\n")
         io.write(string.format("    clEnableWindow = %s,\n", tostring(options.clEnableWindow)))
+        io.write(string.format("    clHideWhenMenu = %s,\n", tostring(options.clHideWhenMenu)))
+        io.write(string.format("    clHideWhenSymbolChat = %s,\n", tostring(options.clHideWhenSymbolChat)))
+        io.write(string.format("    clHideWhenMenuUnavailable = %s,\n", tostring(options.clHideWhenMenuUnavailable)))
         io.write(string.format("    clChanged = %s,\n", tostring(options.clChanged)))
         io.write(string.format("    clAnchor = %i,\n", options.clAnchor))
         io.write(string.format("    clX = %i,\n", options.clX))
@@ -142,7 +184,6 @@ local function SaveOptions(options)
         io.write(string.format("    clNoResize = \"%s\",\n", options.clNoResize))
         io.write(string.format("    clNoMove = \"%s\",\n", options.clNoMove))
         io.write(string.format("    clTransparentWindow = %s,\n", tostring(options.clTransparentWindow)))
-        io.write(string.format("    clHideInMenu = %s,\n", tostring(options.clHideInMenu)))
         io.write("}\n")
 
         io.close(file)
@@ -361,31 +402,31 @@ local function present()
         return
     end
 
-    if firstPresent or options.clChanged then
-        options.clChanged = false
-        local ps = GetPosBySizeAndAnchor(options.clX, options.clY, options.clW, options.clH, options.clAnchor)
-        imgui.SetNextWindowPos(ps[1], ps[2], "Always");
-        imgui.SetNextWindowSize(options.clW, options.clH, "Always");
-    end
-
-    if options.clTransparentWindow == true then
-        imgui.PushStyleColor("WindowBg", 0.0, 0.0, 0.0, 0.0)
-    end
-
-    if (options.clHideInMenu == false or lib_menu.IsMenuOpen() == false) then
-      if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove }) then
-          imgui.SetWindowFontScale(options.fontScale)
-          DoChat()
-      end
-      imgui.End()
-    end
-
-    if options.clTransparentWindow == true then
-        imgui.PopStyleColor()
-    end
-
-    if firstPresent then
-        firstPresent = false
+    if (options.clEnableWindow == true)
+        and (options.clHideWhenMenu == false or IsMenuOpen() == false)
+        and (options.clHideWhenSymbolChat == false or IsSymbolChatOpen() == false)
+        and (options.clHideWhenMenuUnavailable == false or IsMenuUnavailable() == false)
+    then
+        if firstPresent or options.clChanged then
+            options.clChanged = false
+            local ps = GetPosBySizeAndAnchor(options.clX, options.clY, options.clW, options.clH, options.clAnchor)
+            imgui.SetNextWindowPos(ps[1], ps[2], "Always");
+            imgui.SetNextWindowSize(options.clW, options.clH, "Always");
+        end
+        if options.clTransparentWindow == true then
+            imgui.PushStyleColor("WindowBg", 0.0, 0.0, 0.0, 0.0)
+        end
+        if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove }) then
+            imgui.SetWindowFontScale(options.fontScale)
+            DoChat()
+        end
+        imgui.End()
+        if options.clTransparentWindow == true then
+            imgui.PopStyleColor()
+        end
+        if firstPresent then
+            firstPresent = false
+        end
     end
 end
 

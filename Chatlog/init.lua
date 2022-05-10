@@ -228,7 +228,11 @@ local function get_chat_log()
                     name, locale, msg = string.match(rawmsg, QCHAT_MATCH) -- try match again
                 end
                 -- good enough
-                table.insert(messages, {name = name, text = msg, date = "??:??:??"})
+                local sanitizedName = name
+                if pso.require_version == nil or not pso.require_version(3, 6, 0) then
+                    sanitizedName = string.gsub(name, "%%", "%%%%") -- escape '%'
+                end
+                table.insert(messages, {name = sanitizedName, text = msg, date = "??:??:??"})
             end
         end
     end
@@ -345,9 +349,15 @@ local function DoChat()
 
     -- draw messages
     for i,msg in ipairs(output_messages) do
+        local formattedText = msg.text
+        -- Escape '%' if the base plugin is not updated. If the plugin is updated, then the output
+        -- is written as-is without any additional substitutions.
+        if pso.require_version == nil or not pso.require_version(3, 6, 0) then
+            formattedText = string.gsub(msg.text, "%%", "%%%%") -- escape '%'
+        end
         local formatted = msg.formatted or
                           ( "[".. msg.date .. "] " .. string.format("%-11s", msg.name) .. -- rpad name
-                          "| " .. string.gsub(msg.text, "%%", "%%%%")) -- escape '%'
+                          "| " .. formattedText)
         msg.formatted = formatted -- cache
         local lower = string.lower(msg.text) -- for case insensitive matching
 

@@ -240,10 +240,10 @@ local function get_chat_log()
 end
 
 local GC_PTR = 0x00A46B8C
-local CHARACTERLIST_PTR = 0x00AAACC0
-local CHARACTERNAME_OFFSET = 36
-local GC_OFFSET = 4
-local CHARACTER_OFFSET = 68
+-- Read character data from the player pointers and not the player & team data.
+local CHARACTERLIST_PTR = 0x00A94254
+local CHARACTERNAME_OFFSET = 0x980
+local GC_OFFSET = 0xeb4
 local MAX_PLAYERS = 12
 
 local function read_pso_str(addr, len)
@@ -252,6 +252,13 @@ local function read_pso_str(addr, len)
     local str = ""
 
     local i = 0
+
+    -- If it starts with a language code, just skip over it (two utf16 chars so 4 bytes).
+    -- The game behaves the same way.
+    if buf[1] == '\t' and #buf >= 4 then
+        i = i + 4
+    end
+
     while i < len do
         i = i + 2
         local b1 = buf[i - 1]
@@ -269,9 +276,13 @@ end
 
 local function get_charactername(gc)
     for i = 0, MAX_PLAYERS do
-        local gc0 = pso.read_u32(CHARACTERLIST_PTR + CHARACTER_OFFSET * i + GC_OFFSET)
-        if(gc == gc0) then
-            return read_pso_str(CHARACTERLIST_PTR + CHARACTER_OFFSET * i + CHARACTERNAME_OFFSET, 20)
+
+        local player = pso.read_u32(CHARACTERLIST_PTR + 4 * i)
+        if player ~= 0 then
+            local gc0 = pso.read_u32(player + GC_OFFSET)
+            if gc == gc0 then
+                return read_pso_str(player + CHARACTERNAME_OFFSET, 20)
+            end
         end
     end
     return nil
@@ -298,6 +309,7 @@ local function DoChat()
 
         -- Check if we have a character name, can be null if we are not online yet
         character_name = get_charactername(get_gc())
+        print("character_name", character_name)
         if character_name ~= nil then
             -- apparently there's null characters in the name?
             -- so the gsub removes them

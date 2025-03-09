@@ -309,7 +309,6 @@ local function DoChat()
 
         -- Check if we have a character name, can be null if we are not online yet
         character_name = get_charactername(get_gc())
-        print("character_name", character_name)
         if character_name ~= nil then
             -- apparently there's null characters in the name?
             -- so the gsub removes them

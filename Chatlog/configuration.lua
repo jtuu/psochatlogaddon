@@ -70,19 +70,19 @@ local function ConfigurationWindow(configuration)
                 end
                 this.changed = true
             end
-			if imgui.Checkbox("No Timestamps", _configuration.clNoTimestamp == "NoTimestamp") then
-				if _configuration.clNoTimestamp == "NoTimestamp" then
-					_configuration.clNoTimestamp = ""
-				else
-					_configuration.clNoTimestamp = "NoTimestamp"
-				end
-				this.changed = true
-			end
+            if imgui.Checkbox("No Timestamps", _configuration.clNoTimestamp == "NoTimestamp") then
+                if _configuration.clNoTimestamp == "NoTimestamp" then
+                    _configuration.clNoTimestamp = ""
+                else
+                    _configuration.clNoTimestamp = "NoTimestamp"
+                end
+                this.changed = true
+            end
             if imgui.Checkbox("Transparent window", _configuration.clTransparentWindow) then
                 _configuration.clTransparentWindow = not _configuration.clTransparentWindow
                 this.changed = true
             end
-			
+            
             imgui.Text("Message Format")
 
             if imgui.Checkbox("Fixed-width names", _configuration.clFixedWidthNames) then

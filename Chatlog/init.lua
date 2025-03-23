@@ -132,7 +132,15 @@ if optionsLoaded then
     options.clNoTitleBar              = NotNilOrDefault(options.clNoTitleBar, "")
     options.clNoResize                = NotNilOrDefault(options.clNoResize, "")
     options.clNoMove                  = NotNilOrDefault(options.clNoMove, "")
+    options.clNoTimestamp             = NotNilOrDefault(options.clNoTimestamp, "")
     options.clTransparentWindow       = NotNilOrDefault(options.clTransparentWindow, false)
+    options.clMessageSeparator        = NotNilOrDefault(options.clMessageSeparator, " | ")
+    options.clFixedWidthNames         = NotNilOrDefault(options.clFixedWidthNames, true)
+    options.clColoredNames = NotNilOrDefault(options.clColoredNames, false)
+    options.clNameColorR = NotNilOrDefault(options.clNameColorR, 0.5)
+    options.clNameColorG = NotNilOrDefault(options.clNameColorG, 0.8)
+    options.clNameColorB = NotNilOrDefault(options.clNameColorB, 1.0)
+    options.clNameColorA = NotNilOrDefault(options.clNameColorA, 1.0)
 else
     options =
     {
@@ -154,7 +162,15 @@ else
         clNoTitleBar = "",
         clNoResize = "",
         clNoMove = "",
+        clNoTimestamp = "",
         clTransparentWindow = false,
+        clMessageSeparator = " | ",
+        clFixedWidthNames = true,
+        clColoredNames = false,
+        clNameColorR = 1,
+        clNameColorG = 1,
+        clNameColorB = 1,
+        clNameColorA = 1,
     }
 end
 
@@ -183,7 +199,15 @@ local function SaveOptions(options)
         io.write(string.format("    clNoTitleBar = \"%s\",\n", options.clNoTitleBar))
         io.write(string.format("    clNoResize = \"%s\",\n", options.clNoResize))
         io.write(string.format("    clNoMove = \"%s\",\n", options.clNoMove))
+        io.write(string.format("    clNoTimestamp = \"%s\",\n", options.clNoTimestamp))
         io.write(string.format("    clTransparentWindow = %s,\n", tostring(options.clTransparentWindow)))
+        io.write(string.format("    clMessageSeparator = \"%s\",\n", options.clMessageSeparator))
+        io.write(string.format("    clFixedWidthNames = %s,\n", tostring(options.clFixedWidthNames)))
+        io.write(string.format("    clColoredNames = %s,\n", tostring(options.clColoredNames)))
+        io.write(string.format("    clNameColorR = %s,\n", tostring(options.clNameColorR)))
+        io.write(string.format("    clNameColorG = %s,\n", tostring(options.clNameColorG)))
+        io.write(string.format("    clNameColorB = %s,\n", tostring(options.clNameColorB)))
+        io.write(string.format("    clNameColorA = %s,\n", tostring(options.clNameColorA)))
         io.write("}\n")
 
         io.close(file)
@@ -232,6 +256,7 @@ local function get_chat_log()
                 if pso.require_version == nil or not pso.require_version(3, 6, 0) then
                     sanitizedName = string.gsub(name, "%%", "%%%%") -- escape '%'
                 end
+                sanitizedName = string.gsub(sanitizedName, "%s+$", "")
                 table.insert(messages, {name = sanitizedName, text = msg, date = "??:??:??"})
             end
         end
@@ -359,18 +384,29 @@ local function DoChat()
     end
 
     -- draw messages
-    for i,msg in ipairs(output_messages) do
+    for i, msg in ipairs(output_messages) do
         local formattedText = msg.text
         -- Escape '%' if the base plugin is not updated. If the plugin is updated, then the output
         -- is written as-is without any additional substitutions.
         if pso.require_version == nil or not pso.require_version(3, 6, 0) then
             formattedText = string.gsub(msg.text, "%%", "%%%%") -- escape '%'
         end
-        local formatted = msg.formatted or
-                          ( "[".. msg.date .. "] " .. string.format("%-11s", msg.name) .. -- rpad name
-                          "| " .. formattedText)
-        msg.formatted = formatted -- cache
-        local lower = string.lower(msg.text) -- for case insensitive matching
+
+        -- **Timestamp Display**
+        local timestampPart = (options.clNoTimestamp ~= "NoTimestamp") and ("[" .. msg.date .. "] ") or ""
+
+        -- **Name Formatting**
+        local nameFormat = ""
+        if options.clFixedWidthNames then
+            nameFormat = string.format("%-11s", msg.name)
+        else
+            nameFormat = msg.name
+        end
+
+        -- **Format Message**
+        local formatted = msg.formatted or (timestampPart .. nameFormat .. options.clMessageSeparator .. formattedText)
+        msg.formatted = formatted -- cache result for performance
+        local lower = string.lower(msg.text) -- for case-insensitive matching
 
         -- full word match own name
         if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
@@ -393,7 +429,32 @@ local function DoChat()
                 msg.hilight = true -- cache
         else
             -- no hilight
-            imgui.TextWrapped(formatted)
+            if options.clColoredNames then
+                -- Split the formatted message to color just the name part
+                imgui.PushTextWrapPos(0)
+                -- Display timestamp (if enabled) with default color
+                if options.clNoTimestamp ~= "NoTimestamp" then
+                    imgui.Text(timestampPart)
+                    imgui.SameLine(0, 0)  -- No spacing
+                end
+                
+                -- Display name with custom color
+                imgui.TextColored(
+                    options.clNameColorR,
+                    options.clNameColorG,
+                    options.clNameColorB,
+                    options.clNameColorA,
+                    nameFormat
+                )
+                
+                -- Display separator and message with default color
+                imgui.SameLine(0, 0)  -- No spacing
+                imgui.Text(options.clMessageSeparator .. formattedText)
+                imgui.PopTextWrapPos()
+            else
+                -- Original behavior - display the whole message with default color
+                imgui.TextWrapped(formatted)
+            end
         end
 
         if scrolldown then
@@ -437,7 +498,7 @@ local function present()
         if options.clTransparentWindow == true then
             imgui.PushStyleColor("WindowBg", 0.0, 0.0, 0.0, 0.0)
         end
-        if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove }) then
+        if imgui.Begin("Chatlog", nil, { options.clNoTitleBar, options.clNoResize, options.clNoMove, options.clNoTimestamp }) then
             imgui.SetWindowFontScale(options.fontScale)
             DoChat()
         end

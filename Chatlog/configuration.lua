@@ -70,10 +70,73 @@ local function ConfigurationWindow(configuration)
                 end
                 this.changed = true
             end
-
+            if imgui.Checkbox("No Timestamps", _configuration.clNoTimestamp == "NoTimestamp") then
+                if _configuration.clNoTimestamp == "NoTimestamp" then
+                    _configuration.clNoTimestamp = ""
+                else
+                    _configuration.clNoTimestamp = "NoTimestamp"
+                end
+                this.changed = true
+            end
             if imgui.Checkbox("Transparent window", _configuration.clTransparentWindow) then
                 _configuration.clTransparentWindow = not _configuration.clTransparentWindow
                 this.changed = true
+            end
+            
+            imgui.Text("Message Format")
+
+            if imgui.Checkbox("Fixed-width names", _configuration.clFixedWidthNames) then
+                _configuration.clFixedWidthNames = not _configuration.clFixedWidthNames
+                this.changed = true
+            end
+            
+            imgui.PushItemWidth(40) 
+            success, _configuration.clMessageSeparator = imgui.InputText("Separator", _configuration.clMessageSeparator, 5)
+            imgui.PopItemWidth()
+            imgui.Spacing()
+            if success then
+                _configuration.clChanged = true
+                this.changed = true
+            end
+
+            if imgui.Checkbox("Colored names", _configuration.clColoredNames) then
+                _configuration.clColoredNames = not _configuration.clColoredNames
+                this.changed = true
+            end
+            
+            -- Only show color picker if colored names is enabled
+            if _configuration.clColoredNames then
+                imgui.Text("Name Color")
+            
+                imgui.PushItemWidth(60)
+                success, _configuration.clNameColorR = imgui.SliderFloat("R", _configuration.clNameColorR, 0.0, 1.0)
+                if success then
+                    this.changed = true
+                end
+            
+                imgui.SameLine(0, 10)
+                success, _configuration.clNameColorG = imgui.SliderFloat("G", _configuration.clNameColorG, 0.0, 1.0)
+                if success then
+                    this.changed = true
+                end
+            
+                imgui.SameLine(0, 10)
+                success, _configuration.clNameColorB = imgui.SliderFloat("B", _configuration.clNameColorB, 0.0, 1.0)
+                if success then
+                    this.changed = true
+                end
+            
+                imgui.SameLine(0, 10)
+                success, _configuration.clNameColorA = imgui.SliderFloat("A", _configuration.clNameColorA, 0.0, 1.0)
+                if success then
+                    this.changed = true
+                end
+                imgui.PopItemWidth()
+                imgui.SameLine(0, 10)
+                imgui.PushStyleColor("Button", _configuration.clNameColorR, _configuration.clNameColorG, _configuration.clNameColorB, _configuration.clNameColorA)
+                if imgui.Button("", 30, 30) then
+                end
+                imgui.PopStyleColor()
             end
 
             imgui.Text("Position and Size")

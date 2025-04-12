@@ -136,11 +136,17 @@ if optionsLoaded then
     options.clTransparentWindow       = NotNilOrDefault(options.clTransparentWindow, false)
     options.clMessageSeparator        = NotNilOrDefault(options.clMessageSeparator, " | ")
     options.clFixedWidthNames         = NotNilOrDefault(options.clFixedWidthNames, true)
-    options.clColoredNames = NotNilOrDefault(options.clColoredNames, false)
-    options.clNameColorR = NotNilOrDefault(options.clNameColorR, 0.5)
-    options.clNameColorG = NotNilOrDefault(options.clNameColorG, 0.8)
-    options.clNameColorB = NotNilOrDefault(options.clNameColorB, 1.0)
-    options.clNameColorA = NotNilOrDefault(options.clNameColorA, 1.0)
+    options.clColoredNames            = NotNilOrDefault(options.clColoredNames, false)
+    options.clNameColorR              = NotNilOrDefault(options.clNameColorR, 0.5)
+    options.clNameColorG              = NotNilOrDefault(options.clNameColorG, 0.8)
+    options.clNameColorB              = NotNilOrDefault(options.clNameColorB, 1.0)
+    options.clNameColorA              = NotNilOrDefault(options.clNameColorA, 1.0)
+    options.clCustomHighlight         = NotNilOrDefault(options.clCustomHighlight, false)
+    options.clHighlightColorR         = NotNilOrDefault(options.clHighlightColorR, 0.5)
+    options.clHighlightColorG         = NotNilOrDefault(options.clHighlightColorG, 1.0)
+    options.clHighlightColorB         = NotNilOrDefault(options.clHighlightColorB, 0.0)
+    options.clHighlightColorA         = NotNilOrDefault(options.clHighlightColorA, 1.0)
+
 else
     options =
     {
@@ -171,6 +177,12 @@ else
         clNameColorG = 1,
         clNameColorB = 1,
         clNameColorA = 1,
+        clCustomHighlight = false,
+        clHighlightColorR = 0.5,
+        clHighlightColorG = 1.0,
+        clHighlightColorB = 0.0,
+        clHighlightColorA = 1.0,
+
     }
 end
 
@@ -208,6 +220,12 @@ local function SaveOptions(options)
         io.write(string.format("    clNameColorG = %s,\n", tostring(options.clNameColorG)))
         io.write(string.format("    clNameColorB = %s,\n", tostring(options.clNameColorB)))
         io.write(string.format("    clNameColorA = %s,\n", tostring(options.clNameColorA)))
+        io.write(string.format("    clCustomHighlight = %s,\n", tostring(options.clCustomHighlight)))
+        io.write(string.format("    clHighlightColorR = %s,\n", tostring(options.clHighlightColorR)))
+        io.write(string.format("    clHighlightColorG = %s,\n", tostring(options.clHighlightColorG)))
+        io.write(string.format("    clHighlightColorB = %s,\n", tostring(options.clHighlightColorB)))
+        io.write(string.format("    clHighlightColorA = %s,\n", tostring(options.clHighlightColorA)))
+
         io.write("}\n")
 
         io.close(file)
@@ -280,7 +298,7 @@ local function read_pso_str(addr, len)
 
     -- If it starts with a language code, just skip over it (two utf16 chars so 4 bytes).
     -- The game behaves the same way.
-    if buf[1] == '\t' and #buf >= 4 then
+    if buf[1] == string.byte('\t') and #buf >= 4 then
         i = i + 4
     end
 
@@ -306,7 +324,7 @@ local function get_charactername(gc)
         if player ~= 0 then
             local gc0 = pso.read_u32(player + GC_OFFSET)
             if gc == gc0 then
-                return read_pso_str(player + CHARACTERNAME_OFFSET, 20)
+                return read_pso_str(player + CHARACTERNAME_OFFSET, 24)
             end
         end
     end
@@ -316,9 +334,27 @@ end
 local UPDATE_INTERVAL = 30
 local counter = UPDATE_INTERVAL - 1
 local MAX_LOG_SIZE = 1000
-local HILIGHT_COLOR = {0.5, 1, 0, 1}
+local function getHighlightColor()
+    if options.clCustomHighlight then
+        return {
+            options.clHighlightColorR,
+            options.clHighlightColorG,
+            options.clHighlightColorB,
+            options.clHighlightColorA
+        }
+    else
+        return {0.5, 1.0, 0.0, 1.0}
+    end
+end
 
 local own_name = ""
+
+local function TextCustomColored(r, g, b, a, text)
+    if not r or not g or not b or not a then 
+        return imgui.Text(text) 
+    end
+    return imgui.TextColored(r, g, b, a, text)
+end
 
 local function DoChat()
     counter = counter + 1
@@ -376,7 +412,6 @@ local function DoChat()
                         table.remove(output_messages, 1)
                     end
                 end
-
             end
         end
         
@@ -408,6 +443,8 @@ local function DoChat()
         msg.formatted = formatted -- cache result for performance
         local lower = string.lower(msg.text) -- for case-insensitive matching
 
+        local highlightColor = getHighlightColor()
+
         -- full word match own name
         if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
             (
@@ -417,13 +454,20 @@ local function DoChat()
                 string.match(lower, "^" .. own_name .. "$")
             )) then
                 -- hilight message
-                imgui.PushTextWrapPos(0)
+                local windowWidth = imgui.GetWindowWidth()
+                imgui.PushTextWrapPos(windowWidth - 10)
+                
+                local processedText = formatted
+                if #formatted > 40 then
+                    processedText = string.gsub(formatted, "([^%s]{20})", "%1\226\128\139")
+                end
+                
                 imgui.TextColored(
-                    HILIGHT_COLOR[1],
-                    HILIGHT_COLOR[2],
-                    HILIGHT_COLOR[3],
-                    HILIGHT_COLOR[4],
-                    formatted
+                    highlightColor[1],
+                    highlightColor[2],
+                    highlightColor[3],
+                    highlightColor[4],
+                    processedText
                 )
                 imgui.PopTextWrapPos()
                 msg.hilight = true -- cache

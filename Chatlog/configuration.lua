@@ -9,6 +9,106 @@ local function ConfigurationWindow(configuration)
 
     local _configuration = configuration
 
+    local function PresentColorEditor(label, default, custom)
+        custom = custom or 0xFFFFFFFF
+
+        local changed = false
+        local i_default =
+        {
+            bit.band(bit.rshift(default, 24), 0xFF),
+            bit.band(bit.rshift(default, 16), 0xFF),
+            bit.band(bit.rshift(default, 8), 0xFF),
+            bit.band(default, 0xFF)
+        }
+        local i_custom =
+        {
+            bit.band(bit.rshift(custom, 24), 0xFF),
+            bit.band(bit.rshift(custom, 16), 0xFF),
+            bit.band(bit.rshift(custom, 8), 0xFF),
+            bit.band(custom, 0xFF)
+        }
+
+        local ids = { "##X", "##Y", "##Z", "##W" }
+        local fmt = { "A:%3.0f", "R:%3.0f", "G:%3.0f", "B:%3.0f" }
+
+        imgui.BeginGroup()
+        imgui.PushID(label)
+
+        imgui.PushItemWidth(75)
+        for n = 1, 4, 1 do
+            local success = false
+            if n ~= 1 then
+                imgui.SameLine(0, 5)
+            end
+
+            success, i_custom[n] = imgui.DragInt(ids[n], i_custom[n], 1.0, 0, 255, fmt[n])
+            if success then
+                this.changed = true
+            end
+        end
+        imgui.PopItemWidth()
+
+        imgui.SameLine(0, 5)
+        imgui.ColorButton(i_custom[2] / 255, i_custom[3] / 255, i_custom[4] / 255, i_custom[1] / 255)
+        if imgui.IsItemHovered() then
+            imgui.SetTooltip(
+                string.format(
+                    "#%02X%02X%02X%02X",
+                    i_custom[4],
+                    i_custom[1],
+                    i_custom[2],
+                    i_custom[3]
+                )
+            )
+        end
+
+        imgui.SameLine(0, 5)
+        imgui.Text(label)
+
+        default =
+        bit.lshift(i_default[1], 24) +
+        bit.lshift(i_default[2], 16) +
+        bit.lshift(i_default[3], 8) +
+        bit.lshift(i_default[4], 0)
+
+        custom =
+        bit.lshift(i_custom[1], 24) +
+        bit.lshift(i_custom[2], 16) +
+        bit.lshift(i_custom[3], 8) +
+        bit.lshift(i_custom[4], 0)
+
+        if custom ~= default then
+            imgui.SameLine(0, 5)
+            if imgui.Button("Revert") then
+                custom = default
+                this.changed = true
+            end
+        end
+
+        imgui.PopID()
+        imgui.EndGroup()
+
+        return custom
+    end
+
+    local function RGBAToHex(r, g, b, a)
+        local alpha = math.floor(a * 255)
+        local red = math.floor(r * 255)
+        local green = math.floor(g * 255)
+        local blue = math.floor(b * 255)
+        
+        return bit.lshift(alpha, 24) + bit.lshift(red, 16) + bit.lshift(green, 8) + blue
+    end
+
+    local function HexToRGBA(hex)
+        local alpha = bit.band(bit.rshift(hex, 24), 0xFF) / 255
+        local red = bit.band(bit.rshift(hex, 16), 0xFF) / 255
+        local green = bit.band(bit.rshift(hex, 8), 0xFF) / 255
+        local blue = bit.band(hex, 0xFF) / 255
+        
+        return red, green, blue, alpha
+    end
+
     local _showWindowSettings = function()
         local success
         local anchorList =
@@ -107,36 +207,50 @@ local function ConfigurationWindow(configuration)
             -- Only show color picker if colored names is enabled
             if _configuration.clColoredNames then
                 imgui.Text("Name Color")
-            
-                imgui.PushItemWidth(60)
-                success, _configuration.clNameColorR = imgui.SliderFloat("R", _configuration.clNameColorR, 0.0, 1.0)
-                if success then
+
+                local nameColorHex = RGBAToHex(
+                    _configuration.clNameColorR,
+                    _configuration.clNameColorG,
+                    _configuration.clNameColorB,
+                    _configuration.clNameColorA
+                )
+
+                local defaultNameColorHex = RGBAToHex(0.5, 1.0, 0.0, 1.0)
+
+                local newNameColorHex = PresentColorEditor("Name Color", defaultNameColorHex, nameColorHex)
+
+                if newNameColorHex ~= nameColorHex then
+                    _configuration.clNameColorR, _configuration.clNameColorG, 
+                    _configuration.clNameColorB, _configuration.clNameColorA = HexToRGBA(newNameColorHex)
                     this.changed = true
                 end
-            
-                imgui.SameLine(0, 10)
-                success, _configuration.clNameColorG = imgui.SliderFloat("G", _configuration.clNameColorG, 0.0, 1.0)
-                if success then
+            end
+
+            imgui.Spacing()
+            if imgui.Checkbox("Customize highlight color", _configuration.clCustomHighlight) then
+                _configuration.clCustomHighlight = not _configuration.clCustomHighlight
+                this.changed = true
+            end
+
+            if _configuration.clCustomHighlight then
+                imgui.Text("Highlight Color")
+
+                local highlightColorHex = RGBAToHex(
+                    _configuration.clHighlightColorR,
+                    _configuration.clHighlightColorG,
+                    _configuration.clHighlightColorB,
+                    _configuration.clHighlightColorA
+                )
+
+                local defaultHighlightColorHex = RGBAToHex(0.5, 1.0, 0.0, 1.0)
+
+                local newHighlightColorHex = PresentColorEditor("Highlight Color", defaultHighlightColorHex, highlightColorHex)
+
+                if newHighlightColorHex ~= highlightColorHex then
+                    _configuration.clHighlightColorR, _configuration.clHighlightColorG, 
+                    _configuration.clHighlightColorB, _configuration.clHighlightColorA = HexToRGBA(newHighlightColorHex)
                     this.changed = true
                 end
-            
-                imgui.SameLine(0, 10)
-                success, _configuration.clNameColorB = imgui.SliderFloat("B", _configuration.clNameColorB, 0.0, 1.0)
-                if success then
-                    this.changed = true
-                end
-            
-                imgui.SameLine(0, 10)
-                success, _configuration.clNameColorA = imgui.SliderFloat("A", _configuration.clNameColorA, 0.0, 1.0)
-                if success then
-                    this.changed = true
-                end
-                imgui.PopItemWidth()
-                imgui.SameLine(0, 10)
-                imgui.PushStyleColor("Button", _configuration.clNameColorR, _configuration.clNameColorG, _configuration.clNameColorB, _configuration.clNameColorA)
-                if imgui.Button("", 30, 30) then
-                end
-                imgui.PopStyleColor()
             end
 
             imgui.Text("Position and Size")

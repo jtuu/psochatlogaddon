@@ -430,8 +430,9 @@ local function DoChat()
         else
             -- no hilight
             if options.clColoredNames then
-                -- Split the formatted message to color just the name part
-                imgui.PushTextWrapPos(0)
+                local windowWidth = imgui.GetWindowWidth()
+                imgui.PushTextWrapPos(windowWidth - 10) -- Set wrap width to window width minus a small margin
+                
                 -- Display timestamp (if enabled) with default color
                 if options.clNoTimestamp ~= "NoTimestamp" then
                     imgui.Text(timestampPart)
@@ -448,12 +449,28 @@ local function DoChat()
                 )
                 
                 -- Display separator and message with default color
-                imgui.SameLine(0, 0)  -- No spacing
-                imgui.Text(options.clMessageSeparator .. formattedText)
+                imgui.SameLine(0, 0)
+                imgui.Text(options.clMessageSeparator)
+                imgui.SameLine(0, 0)
+                
+                local processedText = formattedText
+                if #formattedText > 40 then
+                    processedText = string.gsub(formattedText, "([^%s]{20})", "%1\226\128\139")
+                end
+                
+                imgui.Text(processedText)
                 imgui.PopTextWrapPos()
             else
-                -- Original behavior - display the whole message with default color
-                imgui.TextWrapped(formatted)
+                local windowWidth = imgui.GetWindowWidth()
+                imgui.PushTextWrapPos(windowWidth - 10)
+                
+                local processedText = formatted
+                if #formatted > 40 then
+                    processedText = string.gsub(formatted, "([^%s]{20})", "%1\226\128\139")
+                end
+                
+                imgui.Text(processedText)
+                imgui.PopTextWrapPos()
             end
         end
 

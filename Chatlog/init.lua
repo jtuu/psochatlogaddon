@@ -271,28 +271,22 @@ local CHARACTERNAME_OFFSET = 0x980
 local GC_OFFSET = 0xeb4
 local MAX_PLAYERS = 12
 
-local function read_pso_str(addr, len)
-    local buf = {}
-    pso.read_mem(buf, addr, len)
-    local str = ""
+-- Len is max number of wide chars to read.
+local function read_wstr_max_size(addr, len)
+    -- Read the UTF-16 string and convert it to UTF-8
+    local wstr = pso.read_wstr(addr, len)
 
-    local i = 0
-
-    -- If it starts with a language code, just skip over it (two utf16 chars so 4 bytes).
-    -- The game behaves the same way.
-    if buf[1] == string.byte('\t') and #buf >= 4 then
-        i = i + 4
+    -- If the first character is \t, then the name has a language code. This should 
+    -- always be true while reading the character name out of the player object.
+    -- utf8 library isn't available in the plugin's Lua implementation
+    -- and string.byte() will truncate the return value to a single byte, so have
+    -- to read the address again to check.
+    local first_wchar = pso.read_u16(addr)
+    if first_wchar == 0x0009 and #wstr >= 2 then
+        wstr = string.sub(wstr, 3) 
     end
 
-    while i < len do
-        i = i + 2
-        local b1 = buf[i - 1]
-        local b2 = buf[i]
-
-        xpcall(function() str = str .. string.char(b1) end, function(err) str = str .. "?" end)
-    end
-
-    return str
+    return wstr
 end
 
 local function get_gc()
@@ -306,7 +300,8 @@ local function get_charactername(gc)
         if player ~= 0 then
             local gc0 = pso.read_u32(player + GC_OFFSET)
             if gc == gc0 then
-                return read_pso_str(player + CHARACTERNAME_OFFSET, 20)
+                -- 12 utf-16 chars because two for language code and then 10 for the name.
+                return read_wstr_max_size(player + CHARACTERNAME_OFFSET, 12)
             end
         end
     end
@@ -426,7 +421,7 @@ local function DoChat()
                     formatted
                 )
                 imgui.PopTextWrapPos()
-                msg.hilight = true -- cache
+                msg.hilight = true
         else
             -- no hilight
             if options.clColoredNames then

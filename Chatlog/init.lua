@@ -280,7 +280,7 @@ local function read_pso_str(addr, len)
 
     -- If it starts with a language code, just skip over it (two utf16 chars so 4 bytes).
     -- The game behaves the same way.
-    if buf[1] == '\t' and #buf >= 4 then
+    if buf[1] == string.byte('\t') and #buf >= 4 then
         i = i + 4
     end
 

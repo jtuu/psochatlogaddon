@@ -136,11 +136,17 @@ if optionsLoaded then
     options.clTransparentWindow       = NotNilOrDefault(options.clTransparentWindow, false)
     options.clMessageSeparator        = NotNilOrDefault(options.clMessageSeparator, " | ")
     options.clFixedWidthNames         = NotNilOrDefault(options.clFixedWidthNames, true)
-    options.clColoredNames = NotNilOrDefault(options.clColoredNames, false)
-    options.clNameColorR = NotNilOrDefault(options.clNameColorR, 0.5)
-    options.clNameColorG = NotNilOrDefault(options.clNameColorG, 0.8)
-    options.clNameColorB = NotNilOrDefault(options.clNameColorB, 1.0)
-    options.clNameColorA = NotNilOrDefault(options.clNameColorA, 1.0)
+    options.clColoredNames            = NotNilOrDefault(options.clColoredNames, false)
+    options.clNameColorR              = NotNilOrDefault(options.clNameColorR, 0.5)
+    options.clNameColorG              = NotNilOrDefault(options.clNameColorG, 0.8)
+    options.clNameColorB              = NotNilOrDefault(options.clNameColorB, 1.0)
+    options.clNameColorA              = NotNilOrDefault(options.clNameColorA, 1.0)
+    options.clCustomHighlight         = NotNilOrDefault(options.clCustomHighlight, false)
+    options.clHighlightColorR         = NotNilOrDefault(options.clHighlightColorR, 0.5)
+    options.clHighlightColorG         = NotNilOrDefault(options.clHighlightColorG, 1.0)
+    options.clHighlightColorB         = NotNilOrDefault(options.clHighlightColorB, 0.0)
+    options.clHighlightColorA         = NotNilOrDefault(options.clHighlightColorA, 1.0)
+
 else
     options =
     {
@@ -171,6 +177,12 @@ else
         clNameColorG = 1,
         clNameColorB = 1,
         clNameColorA = 1,
+        clCustomHighlight = false,
+        clHighlightColorR = 0.5,
+        clHighlightColorG = 1.0,
+        clHighlightColorB = 0.0,
+        clHighlightColorA = 1.0,
+
     }
 end
 
@@ -208,6 +220,12 @@ local function SaveOptions(options)
         io.write(string.format("    clNameColorG = %s,\n", tostring(options.clNameColorG)))
         io.write(string.format("    clNameColorB = %s,\n", tostring(options.clNameColorB)))
         io.write(string.format("    clNameColorA = %s,\n", tostring(options.clNameColorA)))
+        io.write(string.format("    clCustomHighlight = %s,\n", tostring(options.clCustomHighlight)))
+        io.write(string.format("    clHighlightColorR = %s,\n", tostring(options.clHighlightColorR)))
+        io.write(string.format("    clHighlightColorG = %s,\n", tostring(options.clHighlightColorG)))
+        io.write(string.format("    clHighlightColorB = %s,\n", tostring(options.clHighlightColorB)))
+        io.write(string.format("    clHighlightColorA = %s,\n", tostring(options.clHighlightColorA)))
+
         io.write("}\n")
 
         io.close(file)
@@ -283,7 +301,7 @@ local function read_wstr_max_size(addr, len)
     -- to read the address again to check.
     local first_wchar = pso.read_u16(addr)
     if first_wchar == 0x0009 and #wstr >= 2 then
-        wstr = string.sub(wstr, 3) 
+        wstr = string.sub(wstr, 3)
     end
 
     return wstr
@@ -311,9 +329,27 @@ end
 local UPDATE_INTERVAL = 30
 local counter = UPDATE_INTERVAL - 1
 local MAX_LOG_SIZE = 1000
-local HILIGHT_COLOR = {0.5, 1, 0, 1}
+local function getHighlightColor()
+    if options.clCustomHighlight then
+        return {
+            options.clHighlightColorR,
+            options.clHighlightColorG,
+            options.clHighlightColorB,
+            options.clHighlightColorA
+        }
+    else
+        return {0.5, 1.0, 0.0, 1.0}
+    end
+end
 
 local own_name = ""
+
+local function TextCustomColored(r, g, b, a, text)
+    if not r or not g or not b or not a then 
+        return imgui.Text(text) 
+    end
+    return imgui.TextColored(r, g, b, a, text)
+end
 
 local function DoChat()
     counter = counter + 1
@@ -371,7 +407,6 @@ local function DoChat()
                         table.remove(output_messages, 1)
                     end
                 end
-
             end
         end
         
@@ -403,36 +438,91 @@ local function DoChat()
         msg.formatted = formatted -- cache result for performance
         local lower = string.lower(msg.text) -- for case-insensitive matching
 
+        local highlightColor = getHighlightColor()
+
         -- full word match own name
-        if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
-            (
-                string.match(lower, "^" .. own_name .. "[%p%s]") or
-                string.match(lower, "[%p%s]" .. own_name .. "[%p%s]") or
-                string.match(lower, "[%p%s]" .. own_name .. "$") or
-                string.match(lower, "^" .. own_name .. "$")
-            )) then
-                -- hilight message
-                imgui.PushTextWrapPos(0)
+-- Modify the highlighting code section (around line 424-445)
+if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
+    (
+        string.match(lower, "^" .. own_name .. "[%p%s]") or
+        string.match(lower, "[%p%s]" .. own_name .. "[%p%s]") or
+        string.match(lower, "[%p%s]" .. own_name .. "$") or
+        string.match(lower, "^" .. own_name .. "$")
+    )) then
+        -- hilight message - but use the same components as colored names
+        local windowWidth = imgui.GetWindowWidth()
+        imgui.PushTextWrapPos(windowWidth - 10)
+
+        if options.clColoredNames then
+            -- Display timestamp (if enabled) with highlight color
+            if options.clNoTimestamp ~= "NoTimestamp" then
                 imgui.TextColored(
-                    HILIGHT_COLOR[1],
-                    HILIGHT_COLOR[2],
-                    HILIGHT_COLOR[3],
-                    HILIGHT_COLOR[4],
-                    formatted
+                    highlightColor[1],
+                    highlightColor[2],
+                    highlightColor[3],
+                    highlightColor[4],
+                    timestampPart
                 )
-                imgui.PopTextWrapPos()
-                msg.hilight = true
+
+                imgui.SameLine(0, 0)  -- No spacing
+            end
+
+            -- Display name with highlight color
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                nameFormat
+            )
+            -- Display separator with highlight color
+            imgui.SameLine(0, 0)
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                options.clMessageSeparator
+            )
+            imgui.SameLine(0, 0)
+
+            -- Display message with highlight color
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                formattedText
+            )
+        else
+            -- For non-colored names, just highlight the whole formatted text
+            -- But recreate it with the current separator rather than using cached
+            local currentFormatted = timestampPart .. nameFormat .. options.clMessageSeparator .. formattedText
+
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                currentFormatted
+            )
+        end
+
+        imgui.PopTextWrapPos()
+        msg.hilight = true
+
         else
             -- no hilight
             if options.clColoredNames then
-                -- Split the formatted message to color just the name part
-                imgui.PushTextWrapPos(0)
+                local windowWidth = imgui.GetWindowWidth()
+                imgui.PushTextWrapPos(windowWidth - 10) -- Set wrap width to window width minus a small margin
+
                 -- Display timestamp (if enabled) with default color
                 if options.clNoTimestamp ~= "NoTimestamp" then
                     imgui.Text(timestampPart)
                     imgui.SameLine(0, 0)  -- No spacing
                 end
-                
+
                 -- Display name with custom color
                 imgui.TextColored(
                     options.clNameColorR,
@@ -441,14 +531,19 @@ local function DoChat()
                     options.clNameColorA,
                     nameFormat
                 )
-                
+
                 -- Display separator and message with default color
-                imgui.SameLine(0, 0)  -- No spacing
-                imgui.Text(options.clMessageSeparator .. formattedText)
+                imgui.SameLine(0, 0)
+                imgui.Text(options.clMessageSeparator)
+                imgui.SameLine(0, 0)
+
+                imgui.Text(formattedText)
                 imgui.PopTextWrapPos()
             else
-                -- Original behavior - display the whole message with default color
-                imgui.TextWrapped(formatted)
+                local windowWidth = imgui.GetWindowWidth()
+                imgui.PushTextWrapPos(windowWidth - 10)
+                imgui.Text(formatted)
+                imgui.PopTextWrapPos()
             end
         end
 
@@ -519,7 +614,7 @@ local function init()
     return
     {
         name = "Chatlog",
-        version = "0.1.0",
+        version = "0.1.1",
         author = "esc",
         present = present
     }

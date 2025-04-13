@@ -463,6 +463,7 @@ if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
                     highlightColor[4],
                     timestampPart
                 )
+
                 imgui.SameLine(0, 0)  -- No spacing
             end
 
@@ -474,7 +475,7 @@ if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
                 highlightColor[4],
                 nameFormat
             )
-                        -- Display separator with highlight color
+            -- Display separator with highlight color
             imgui.SameLine(0, 0)
             imgui.TextColored(
                 highlightColor[1],
@@ -509,6 +510,7 @@ if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
 
         imgui.PopTextWrapPos()
         msg.hilight = true
+
         else
             -- no hilight
             if options.clColoredNames then

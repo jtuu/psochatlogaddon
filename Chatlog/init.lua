@@ -289,28 +289,22 @@ local CHARACTERNAME_OFFSET = 0x980
 local GC_OFFSET = 0xeb4
 local MAX_PLAYERS = 12
 
-local function read_pso_str(addr, len)
-    local buf = {}
-    pso.read_mem(buf, addr, len)
-    local str = ""
+-- Len is max number of wide chars to read.
+local function read_wstr_max_size(addr, len)
+    -- Read the UTF-16 string and convert it to UTF-8
+    local wstr = pso.read_wstr(addr, len)
 
-    local i = 0
-
-    -- If it starts with a language code, just skip over it (two utf16 chars so 4 bytes).
-    -- The game behaves the same way.
-    if buf[1] == string.byte('\t') and #buf >= 4 then
-        i = i + 4
+    -- If the first character is \t, then the name has a language code. This should 
+    -- always be true while reading the character name out of the player object.
+    -- utf8 library isn't available in the plugin's Lua implementation
+    -- and string.byte() will truncate the return value to a single byte, so have
+    -- to read the address again to check.
+    local first_wchar = pso.read_u16(addr)
+    if first_wchar == 0x0009 and #wstr >= 2 then
+        wstr = string.sub(wstr, 3)
     end
 
-    while i < len do
-        i = i + 2
-        local b1 = buf[i - 1]
-        local b2 = buf[i]
-
-        xpcall(function() str = str .. string.char(b1) end, function(err) str = str .. "?" end)
-    end
-
-    return str
+    return wstr
 end
 
 local function get_gc()
@@ -324,7 +318,8 @@ local function get_charactername(gc)
         if player ~= 0 then
             local gc0 = pso.read_u32(player + GC_OFFSET)
             if gc == gc0 then
-                return read_pso_str(player + CHARACTERNAME_OFFSET, 24)
+                -- 12 utf-16 chars because two for language code and then 10 for the name.
+                return read_wstr_max_size(player + CHARACTERNAME_OFFSET, 12)
             end
         end
     end
@@ -446,43 +441,86 @@ local function DoChat()
         local highlightColor = getHighlightColor()
 
         -- full word match own name
-        if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
-            (
-                string.match(lower, "^" .. own_name .. "[%p%s]") or
-                string.match(lower, "[%p%s]" .. own_name .. "[%p%s]") or
-                string.match(lower, "[%p%s]" .. own_name .. "$") or
-                string.match(lower, "^" .. own_name .. "$")
-            )) then
-                -- hilight message
-                local windowWidth = imgui.GetWindowWidth()
-                imgui.PushTextWrapPos(windowWidth - 10)
-                
-                local processedText = formatted
-                if #formatted > 40 then
-                    processedText = string.gsub(formatted, "([^%s]{20})", "%1\226\128\139")
-                end
-                
+-- Modify the highlighting code section (around line 424-445)
+if msg.hilight or (#own_name > 0 and string.match(lower, own_name) and
+    (
+        string.match(lower, "^" .. own_name .. "[%p%s]") or
+        string.match(lower, "[%p%s]" .. own_name .. "[%p%s]") or
+        string.match(lower, "[%p%s]" .. own_name .. "$") or
+        string.match(lower, "^" .. own_name .. "$")
+    )) then
+        -- hilight message - but use the same components as colored names
+        local windowWidth = imgui.GetWindowWidth()
+        imgui.PushTextWrapPos(windowWidth - 10)
+
+        if options.clColoredNames then
+            -- Display timestamp (if enabled) with highlight color
+            if options.clNoTimestamp ~= "NoTimestamp" then
                 imgui.TextColored(
                     highlightColor[1],
                     highlightColor[2],
                     highlightColor[3],
                     highlightColor[4],
-                    processedText
+                    timestampPart
                 )
-                imgui.PopTextWrapPos()
-                msg.hilight = true -- cache
+                imgui.SameLine(0, 0)  -- No spacing
+            end
+
+            -- Display name with highlight color
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                nameFormat
+            )
+                        -- Display separator with highlight color
+            imgui.SameLine(0, 0)
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                options.clMessageSeparator
+            )
+            imgui.SameLine(0, 0)
+
+            -- Display message with highlight color
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                formattedText
+            )
+        else
+            -- For non-colored names, just highlight the whole formatted text
+            -- But recreate it with the current separator rather than using cached
+            local currentFormatted = timestampPart .. nameFormat .. options.clMessageSeparator .. formattedText
+
+            imgui.TextColored(
+                highlightColor[1],
+                highlightColor[2],
+                highlightColor[3],
+                highlightColor[4],
+                currentFormatted
+            )
+        end
+
+        imgui.PopTextWrapPos()
+        msg.hilight = true
         else
             -- no hilight
             if options.clColoredNames then
                 local windowWidth = imgui.GetWindowWidth()
                 imgui.PushTextWrapPos(windowWidth - 10) -- Set wrap width to window width minus a small margin
-                
+
                 -- Display timestamp (if enabled) with default color
                 if options.clNoTimestamp ~= "NoTimestamp" then
                     imgui.Text(timestampPart)
                     imgui.SameLine(0, 0)  -- No spacing
                 end
-                
+
                 -- Display name with custom color
                 imgui.TextColored(
                     options.clNameColorR,
@@ -491,29 +529,18 @@ local function DoChat()
                     options.clNameColorA,
                     nameFormat
                 )
-                
+
                 -- Display separator and message with default color
                 imgui.SameLine(0, 0)
                 imgui.Text(options.clMessageSeparator)
                 imgui.SameLine(0, 0)
-                
-                local processedText = formattedText
-                if #formattedText > 40 then
-                    processedText = string.gsub(formattedText, "([^%s]{20})", "%1\226\128\139")
-                end
-                
-                imgui.Text(processedText)
+
+                imgui.Text(formattedText)
                 imgui.PopTextWrapPos()
             else
                 local windowWidth = imgui.GetWindowWidth()
                 imgui.PushTextWrapPos(windowWidth - 10)
-                
-                local processedText = formatted
-                if #formatted > 40 then
-                    processedText = string.gsub(formatted, "([^%s]{20})", "%1\226\128\139")
-                end
-                
-                imgui.Text(processedText)
+                imgui.Text(formatted)
                 imgui.PopTextWrapPos()
             end
         end

@@ -270,6 +270,9 @@ local function get_chat_log()
                     name, locale, msg = string.match(rawmsg, QCHAT_MATCH) -- try match again
                 end
                 -- good enough
+                if name == nil then
+                    name = ""
+                end
                 local sanitizedName = name
                 if pso.require_version == nil or not pso.require_version(3, 6, 0) then
                     sanitizedName = string.gsub(name, "%%", "%%%%") -- escape '%'

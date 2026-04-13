@@ -437,6 +437,9 @@ local function DoChat()
         end
 
         -- **Format Message**
+        if formattedText == nil then
+            formattedText = ""
+        end
         local formatted = msg.formatted or (timestampPart .. nameFormat .. options.clMessageSeparator .. formattedText)
         msg.formatted = formatted -- cache result for performance
         local lower = string.lower(msg.text) -- for case-insensitive matching
